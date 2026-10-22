@@ -1,5 +1,4 @@
-# Screenshot Exact Match
-
+# Dental Clinic Management System (DCMS)
 Implement exactly the screenshot and nothing else
 
 This project was built with [Lovable](https://lovable.dev).
