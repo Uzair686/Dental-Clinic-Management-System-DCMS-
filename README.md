@@ -21,3 +21,13 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Database
+
+Clinic records (staff, patients, appointments) are stored in SQL, not the browser.
+
+- **Default (local):** SQLite file at `data/clinic.db` — no extra setup.
+- **PostgreSQL cloud:** copy `.env.example` to `.env` and set `DATABASE_URL` to a Neon, Supabase, Railway, Azure, or other Postgres URL.
+- **Turso (libSQL cloud):** set `DATABASE_URL=libsql://…` and `DATABASE_AUTH_TOKEN`.
+
+Demo sign-in still uses password `demo123`.

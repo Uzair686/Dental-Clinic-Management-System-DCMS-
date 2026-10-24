@@ -3,8 +3,8 @@ import { useState } from "react";
 import { Plus, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, selectClass } from "@/components/AppShell";
-import { can, DEMO_PASSWORD, ROLE_LABEL, uid, type Role, type Staff } from "@/lib/clinic";
-import { resetDemo, updateDb, useDb } from "@/lib/clinic-store";
+import { can, DEMO_PASSWORD, ROLE_LABEL, type Role, type Staff } from "@/lib/clinic";
+import { useAddStaff, useDb, useRemoveStaff, useResetDemo, useSetStaffRole } from "@/lib/clinic-store";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,10 @@ const ROLES: Role[] = ["admin", "dentist", "receptionist"];
 
 function StaffPage({ me }: { me: Staff }) {
   const db = useDb();
+  const addStaff = useAddStaff();
+  const setRole = useSetStaffRole();
+  const removeStaff = useRemoveStaff();
+  const resetDemo = useResetDemo();
   const [f, setF] = useState({ name: "", email: "", role: "receptionist" as Role });
 
   if (!can(me.role, "staff:manage")) {
@@ -46,10 +50,13 @@ function StaffPage({ me }: { me: Staff }) {
           className="flex flex-wrap gap-3"
           onSubmit={(e) => {
             e.preventDefault();
-            if (db.staff.some((s) => s.email.toLowerCase() === f.email.toLowerCase())) { toast.error("That email is already in use."); return; }
-            updateDb((d) => ({ ...d, staff: [...d.staff, { id: uid(), ...f }] }));
-            toast.success(`Added — they can sign in with password ${DEMO_PASSWORD}`);
-            setF({ name: "", email: "", role: "receptionist" });
+            addStaff.mutate(f, {
+              onSuccess: () => {
+                toast.success(`Added — they can sign in with password ${DEMO_PASSWORD}`);
+                setF({ name: "", email: "", role: "receptionist" });
+              },
+              onError: (err) => toast.error(err instanceof Error ? err.message : "Could not add staff"),
+            });
           }}
         >
           <Input required placeholder="Full name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} className="w-48" />
@@ -74,8 +81,7 @@ function StaffPage({ me }: { me: Staff }) {
               value={s.role}
               onChange={(e) => {
                 const role = e.target.value as Role;
-                updateDb((d) => ({ ...d, staff: d.staff.map((x) => (x.id === s.id ? { ...x, role } : x)) }));
-                toast.success("Role updated");
+                setRole.mutate({ id: s.id, role }, { onSuccess: () => toast.success("Role updated") });
               }}
             >
               {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
@@ -87,7 +93,7 @@ function StaffPage({ me }: { me: Staff }) {
               aria-label={`Remove ${s.name}`}
               onClick={() => {
                 if (!confirm(`Remove ${s.name}?`)) return;
-                updateDb((d) => ({ ...d, staff: d.staff.filter((x) => x.id !== s.id) }));
+                removeStaff.mutate(s.id);
               }}
             >
               <Trash2 className="h-4 w-4" />
@@ -97,7 +103,11 @@ function StaffPage({ me }: { me: Staff }) {
       </Card>
       <Button
         variant="outline"
-        onClick={() => { if (confirm("Reset all demo data?")) { resetDemo(); toast.success("Demo data reset"); } }}
+        onClick={() => {
+          if (confirm("Reset all demo data?")) {
+            resetDemo.mutate(undefined, { onSuccess: () => toast.success("Demo data reset") });
+          }
+        }}
       >
         <RotateCcw className="mr-1 h-4 w-4" />Reset demo data
       </Button>

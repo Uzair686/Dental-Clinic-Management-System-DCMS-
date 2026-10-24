@@ -3,8 +3,8 @@ import { useState } from "react";
 import { AlertTriangle, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, selectClass } from "@/components/AppShell";
-import { can, isoDate, uid, type Patient, type Staff } from "@/lib/clinic";
-import { updateDb, useDb } from "@/lib/clinic-store";
+import { can, type Patient, type Staff } from "@/lib/clinic";
+import { useAddPatient, useDb, useDeletePatient } from "@/lib/clinic-store";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,7 @@ function age(dob: string) {
 
 function Patients({ me }: { me: Staff }) {
   const db = useDb();
+  const deletePatient = useDeletePatient();
   const [q, setQ] = useState("");
   const canWrite = can(me.role, "patients:write");
   const list = db.patients.filter(
@@ -79,12 +80,7 @@ function Patients({ me }: { me: Staff }) {
                       aria-label={`Delete ${p.name}`}
                       onClick={() => {
                         if (!confirm(`Delete ${p.name} and their appointments?`)) return;
-                        updateDb((d) => ({
-                          ...d,
-                          patients: d.patients.filter((x) => x.id !== p.id),
-                          appointments: d.appointments.filter((a) => a.patientId !== p.id),
-                        }));
-                        toast.success("Patient deleted");
+                        deletePatient.mutate(p.id, { onSuccess: () => toast.success("Patient deleted") });
                       }}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -104,6 +100,7 @@ function Patients({ me }: { me: Staff }) {
 }
 
 function AddPatient() {
+  const addPatient = useAddPatient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "", dob: "", gender: "Female" as Patient["gender"], alerts: "" });
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -118,10 +115,16 @@ function AddPatient() {
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
-            updateDb((d) => ({ ...d, patients: [{ id: uid(), createdAt: isoDate(new Date()), ...form, name: form.name.trim() }, ...d.patients] }));
-            toast.success("Patient added");
-            setForm({ name: "", phone: "", dob: "", gender: "Female", alerts: "" });
-            setOpen(false);
+            addPatient.mutate(
+              { ...form, name: form.name.trim() },
+              {
+                onSuccess: () => {
+                  toast.success("Patient added");
+                  setForm({ name: "", phone: "", dob: "", gender: "Female", alerts: "" });
+                  setOpen(false);
+                },
+              },
+            );
           }}
         >
           <div className="space-y-1"><Label>Full name</Label><Input required value={form.name} onChange={set("name")} /></div>

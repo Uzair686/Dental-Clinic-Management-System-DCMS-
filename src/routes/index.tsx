@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Stethoscope } from "lucide-react";
 import { DEMO_PASSWORD, ROLE_LABEL, seedDb } from "@/lib/clinic";
-import { signIn, updateDb } from "@/lib/clinic-store";
+import { signIn, useDatabaseKind } from "@/lib/clinic-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,23 +25,28 @@ const demoStaff = seedDb().staff;
 
 function SignIn() {
   const navigate = useNavigate();
+  const dbKind = useDatabaseKind();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    let found: string | undefined;
-    updateDb((db) => {
-      found = db.staff.find((s) => s.email.toLowerCase() === email.trim().toLowerCase())?.id;
-      return db;
-    });
-    if (!found || password !== DEMO_PASSWORD) {
-      setError("Email or password is incorrect.");
-      return;
+    setBusy(true);
+    setError("");
+    try {
+      const ok = await signIn(email, password);
+      if (!ok) {
+        setError("Email or password is incorrect.");
+        return;
+      }
+      navigate({ to: "/dashboard" });
+    } catch {
+      setError("Could not reach the database. Check DATABASE_URL.");
+    } finally {
+      setBusy(false);
     }
-    signIn(found);
-    navigate({ to: "/dashboard" });
   }
 
   return (
@@ -55,7 +60,7 @@ function SignIn() {
           <p className="font-display text-4xl leading-tight">A calmer day at the clinic, from first call to final check-up.</p>
           <p className="mt-4 text-primary-foreground/80">Patients, appointments and your team in one place.</p>
         </div>
-        <p className="text-sm text-primary-foreground/70">Demo version — data is kept in this browser only.</p>
+        <p className="text-sm text-primary-foreground/70">Connected to {dbKind}. Patients and appointments are stored in SQL.</p>
       </div>
       <div className="flex items-center justify-center p-6">
         <form onSubmit={submit} className="w-full max-w-sm space-y-5">
@@ -72,7 +77,7 @@ function SignIn() {
             <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" className="w-full">Sign in</Button>
+          <Button type="submit" className="w-full" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</Button>
           <div className="rounded-lg border border-border bg-muted/50 p-3 text-sm">
             <p className="mb-2 font-medium text-foreground">Demo accounts (password: {DEMO_PASSWORD})</p>
             {demoStaff.map((s) => (

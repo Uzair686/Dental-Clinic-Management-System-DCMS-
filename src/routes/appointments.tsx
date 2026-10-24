@@ -4,8 +4,8 @@ import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, selectClass } from "@/components/AppShell";
 import { StatusBadge } from "@/components/StatusBadge";
-import { can, isoDate, STATUSES, uid, type ApptStatus, type Staff } from "@/lib/clinic";
-import { updateDb, useDb } from "@/lib/clinic-store";
+import { can, isoDate, STATUSES, type ApptStatus, type Staff } from "@/lib/clinic";
+import { useAddAppointment, useDb, useSetAppointmentStatus } from "@/lib/clinic-store";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,7 @@ function shift(date: string, days: number) {
 
 function Appointments({ me }: { me: Staff }) {
   const db = useDb();
+  const setStatus = useSetAppointmentStatus();
   const [date, setDate] = useState(isoDate(new Date()));
   const [mine, setMine] = useState(me.role === "dentist");
   const list = db.appointments
@@ -76,8 +77,10 @@ function Appointments({ me }: { me: Staff }) {
                     value={a.status}
                     onChange={(e) => {
                       const status = e.target.value as ApptStatus;
-                      updateDb((d) => ({ ...d, appointments: d.appointments.map((x) => (x.id === a.id ? { ...x, status } : x)) }));
-                      toast.success(`Marked ${status.replace("-", " ")}`);
+                      setStatus.mutate(
+                        { id: a.id, status },
+                        { onSuccess: () => toast.success(`Marked ${status.replace("-", " ")}`) },
+                      );
                     }}
                   >
                     {STATUSES.map((s) => <option key={s} value={s}>{s.replace("-", " ")}</option>)}
@@ -94,6 +97,7 @@ function Appointments({ me }: { me: Staff }) {
 
 function BookAppointment({ date }: { date: string }) {
   const db = useDb();
+  const addAppointment = useAddAppointment();
   const dentists = db.staff.filter((s) => s.role !== "receptionist");
   const empty = { patientId: "", dentistId: dentists[0]?.id ?? "", date, time: "09:00", duration: 30, reason: "" };
   const [open, setOpen] = useState(false);
@@ -108,11 +112,13 @@ function BookAppointment({ date }: { date: string }) {
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
-            const clash = db.appointments.some((a) => a.dentistId === f.dentistId && a.date === f.date && a.time === f.time && a.status !== "cancelled");
-            if (clash) { toast.error("That dentist already has an appointment at this time."); return; }
-            updateDb((d) => ({ ...d, appointments: [...d.appointments, { id: uid(), status: "scheduled", ...f }] }));
-            toast.success("Appointment booked");
-            setOpen(false);
+            addAppointment.mutate(f, {
+              onSuccess: () => {
+                toast.success("Appointment booked");
+                setOpen(false);
+              },
+              onError: (err) => toast.error(err instanceof Error ? err.message : "Could not book appointment"),
+            });
           }}
         >
           <div className="space-y-1">

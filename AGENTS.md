@@ -9,4 +9,4 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
-- Clinic data and demo sign-in live in src/lib/clinic-store.ts (localStorage) behind useDb/updateDb/useSession; role rules live in can() in src/lib/clinic.ts — why: Cloud was unavailable, and this keeps one seam to swap for a real backend.
+- Clinic data lives in SQL (`src/server/sql.server.ts`) behind `useDb` / mutation hooks in `src/lib/clinic-store.ts`. Default is a local SQLite file; set `DATABASE_URL` for PostgreSQL (Neon/Supabase/etc.) or Turso. Session id stays in localStorage; role rules live in `can()` in `src/lib/clinic.ts`.
